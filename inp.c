@@ -48,8 +48,10 @@ int main(int argc, char *args[]){
 
 	unsigned long ctime=time(NULL);
 	unsigned long ntime;
-	if(!readline())
+	if(!readline()){
+		free(s.s);
 		return 0;
+	}
 	printf("%s\n",s.s);
 	
 	while(readline()){
@@ -65,5 +67,6 @@ int main(int argc, char *args[]){
 			ctime=ntime;
 		}
 	}
+	free(s.s);
 	return 0;
 }
