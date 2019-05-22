@@ -121,7 +121,7 @@ int main(int argc, char *args[]){
 		fprintf(stderr,"Usage: %s [waittime]\n",args[0]);
 		return EXIT_FAILURE;
 	}
-	
+	setvbuf(stdout, NULL, _IONBF, 0);	
 	unsigned long wt;
 	if(sscanf(args[1],"%lu",&wt) != 1){
 		fprintf(stderr,"Argument must be a number!\n");
