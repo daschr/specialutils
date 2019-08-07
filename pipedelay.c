@@ -18,24 +18,33 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#define STANDARD_SLEEP 500000
 #define STANDARD_LINE 256
 
+#define ts_head(X) X->first == NULL ? 0 : X->first->timestamp
 
-struct entry{
+typedef struct _entry{
+	struct _entry *next;
 	unsigned long timestamp;
 	char *value;
-	struct entry *next;
-};
+} entry;
 
-struct queue{
-	struct entry *first;
-	struct entry *last;
-};
+typedef struct {
+	entry *first;
+	entry *last;
+} queue;
 
-void enqueue(struct queue *q, char *s){
+typedef struct {
+	unsigned long wt;
+	queue *q;
+	int no_lines;
+} thread_args;
+
+
+void enqueue(queue *q, char *s){
 	unsigned long ts=time(NULL);
 	
-	struct entry *new_entry=malloc(sizeof(struct entry));
+	entry *new_entry=malloc(sizeof(entry));
 	new_entry->timestamp=ts;
 	new_entry->value=s;
 	new_entry->next=NULL;
@@ -49,8 +58,8 @@ void enqueue(struct queue *q, char *s){
 	}
 }
 
-char *pop(struct queue *q){
-	struct entry *h=q->first;
+char *pop(queue *q){
+	entry *h=q->first;
 	if(h == q->last)
 		q->last=NULL;
 	char *v= h->value;
@@ -59,14 +68,7 @@ char *pop(struct queue *q){
 	return v;
 }
 
-unsigned long ts_head(struct queue *q){
-	if(q->first == NULL)
-		return 0;		
-	return (q->first)->timestamp;
-}
-
-
-char *head(struct queue *q){
+char *head(queue *q){
 	if(q->first == NULL)
 		return NULL;		
 	return (q->first)->value;
@@ -75,11 +77,11 @@ char *head(struct queue *q){
 
 char *readline(void){
 	char *line=malloc(STANDARD_LINE);
-	unsigned long ls=STANDARD_LINE, ps=0;
+	size_t ls=STANDARD_LINE, ps=0;
 	int c;
-	for(c= getc(stdin);c!= -1 && c!='\n'; c=getc(stdin)){
-		if(ps+1 == ls){
-			ls*=2;	
+	for(c= getc(stdin);c!= -1 && c!='\n'; c=fgetc(stdin)){
+		if(ps == ls){
+			ls+=STANDARD_LINE;	
 			line=realloc(line,ls);
 		}
 		line[ps++]=c;
@@ -88,29 +90,22 @@ char *readline(void){
 		free(line);
 		return NULL;
 	}
-	if(ps+1 == ls)
+	if(ps == ls)
 		line=realloc(line,ls+1);
 	line[ps]='\0';
 	return line;
 }
 
-struct thread_args{
-	int no_lines;
-	unsigned long wt;
-	struct queue *q;
-};
-
-
 void *print_queue(void *args_p){
-	struct thread_args *args= (struct thread_args *) args_p;
-
-	for(unsigned long ts=ts_head(args->q); ts != 0 || ! args->no_lines; ts=ts_head(args->q)){
+	thread_args *args= (thread_args *) args_p;
+ 	for(unsigned long ts=ts_head(args->q); ts != 0 || ! args->no_lines;ts=ts_head(args->q)){
 			if(ts != 0 && time(NULL) - ts >= args->wt){
 				char *lp=pop(args->q);
 				printf("%s\n",lp);
 				free(lp);
 			}
-			usleep(100);
+			
+			usleep(STANDARD_SLEEP);
 	}
 	return NULL;
 }
@@ -128,11 +123,11 @@ int main(int argc, char *args[]){
 		exit(EXIT_FAILURE);
 	}
 
-	struct queue *q=malloc(sizeof(struct queue));
+	queue *q=malloc(sizeof(queue));
 	q->first=NULL;
 	q->last=NULL;
 	
-	struct thread_args *targs=malloc(sizeof(struct thread_args));
+	thread_args *targs=malloc(sizeof(thread_args));
 	targs->no_lines=0;
 	targs->wt=wt;
 	targs->q=q;
